@@ -31,7 +31,7 @@
 {% if pending_add %}
 <div class="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
     <p class="text-amber-800 font-semibold mb-3">
-        ⚠️ 「{{ pending_add.word }}」は既に辞書に登録されています。この単語を追加しますか？
+        「{{ pending_add.word }}」は既に辞書に登録されています。この単語を追加しますか？
     </p>
     <div class="flex gap-3">
         <!-- 強制追加 -->
@@ -43,6 +43,7 @@
             <input type="hidden" name="example_ja" value="{{ pending_add.example_ja }}" />
             <input type="hidden" name="transitivity" value="{{ pending_add.transitivity or '' }}" />
             <input type="hidden" name="countability" value="{{ pending_add.countability or '' }}" />
+            <input type="hidden" name="book" value="{{ pending_add.book or 'reading' }}" />
             <input type="hidden" name="force_add" value="1" />
             <button type="submit"
                 class="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
@@ -71,46 +72,79 @@
         <div class="flex items-start justify-between gap-4 flex-wrap">
             <!-- 単語・品詞バッジ -->
             <div>
-                <span class="text-2xl font-bold text-indigo-700">{{ item.word }}</span>
-                <span
-                    class="ml-2 inline-block bg-indigo-100 text-indigo-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {{ item.part_of_speech }}
-                </span>
-                {% if item.transitivity %}
-                <span
-                    class="ml-1 inline-block bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {{ item.transitivity }}
-                </span>
-                {% endif %}
-                {% if item.countability %}
-                <span
-                    class="ml-1 inline-block bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {{ item.countability }}
-                </span>
-                {% endif %}
+                <!-- 品詞バッジ（単語の上） -->
+                <div class="flex flex-wrap gap-1 mb-1">
+                    <span
+                        class="inline-block {% if item.part_of_speech == '熟語' %}bg-amber-100 text-amber-700{% else %}bg-indigo-100 text-indigo-700{% endif %} text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {{ item.part_of_speech }}
+                    </span>
+                    {% if item.transitivity %}
+                    <span
+                        class="inline-block bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {{ item.transitivity }}
+                    </span>
+                    {% endif %}
+                    {% if item.countability %}
+                    <span
+                        class="inline-block bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {{ item.countability }}
+                    </span>
+                    {% endif %}
+                </div>
+                <!-- 単語 -->
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="speakText('{{ item.word | e }}', 'en')"
+                        class="inline-flex items-center justify-center w-6 h-6 flex-shrink-0 rounded bg-gray-100 text-gray-400 hover:bg-indigo-100 hover:text-indigo-500 transition text-[10px]"
+                        title="単語を読み上げ">▶</button>
+                    <span class="text-2xl font-bold text-indigo-700">{{ item.word }}</span>
+                </div>
             </div>
 
             <!-- 追加ボタン -->
-            <form action="{{ url_for('add') }}" method="POST">
-                <input type="hidden" name="word" value="{{ item.word }}" />
-                <input type="hidden" name="meaning" value="{{ item.meaning }}" />
-                <input type="hidden" name="part_of_speech" value="{{ item.part_of_speech }}" />
-                <input type="hidden" name="example" value="{{ item.example }}" />
-                <input type="hidden" name="example_ja" value="{{ item.example_ja }}" />
-                <input type="hidden" name="transitivity" value="{{ item.transitivity or '' }}" />
-                <input type="hidden" name="countability" value="{{ item.countability or '' }}" />
-                <button type="submit"
-                    class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 transition whitespace-nowrap">
-                    ＋ 辞書に追加
-                </button>
-            </form>
+            <div class="flex flex-row gap-2">
+                <!-- Reading に追加 -->
+                <form action="{{ url_for('add') }}" method="POST">
+                    <input type="hidden" name="word" value="{{ item.word }}" />
+                    <input type="hidden" name="meaning" value="{{ item.meaning }}" />
+                    <input type="hidden" name="part_of_speech" value="{{ item.part_of_speech }}" />
+                    <input type="hidden" name="example" value="{{ item.example }}" />
+                    <input type="hidden" name="example_ja" value="{{ item.example_ja }}" />
+                    <input type="hidden" name="transitivity" value="{{ item.transitivity or '' }}" />
+                    <input type="hidden" name="countability" value="{{ item.countability or '' }}" />
+                    <input type="hidden" name="book" value="reading" />
+                    <button type="submit"
+                        class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 transition whitespace-nowrap">
+                        Reading に追加
+                    </button>
+                </form>
+                <!-- Listening に追加 -->
+                <form action="{{ url_for('add') }}" method="POST">
+                    <input type="hidden" name="word" value="{{ item.word }}" />
+                    <input type="hidden" name="meaning" value="{{ item.meaning }}" />
+                    <input type="hidden" name="part_of_speech" value="{{ item.part_of_speech }}" />
+                    <input type="hidden" name="example" value="{{ item.example }}" />
+                    <input type="hidden" name="example_ja" value="{{ item.example_ja }}" />
+                    <input type="hidden" name="transitivity" value="{{ item.transitivity or '' }}" />
+                    <input type="hidden" name="countability" value="{{ item.countability or '' }}" />
+                    <input type="hidden" name="book" value="listening" />
+                    <button type="submit"
+                        class="w-full bg-sky-50 hover:bg-sky-100 text-sky-700 text-sm font-semibold px-3 py-1.5 rounded-lg border border-sky-200 transition whitespace-nowrap">
+                        Listening に追加
+                    </button>
+                </form>
+            </div>
         </div>
 
         <!-- 意味 -->
         <p class="mt-3 text-gray-800 font-medium">{{ item.meaning }}</p>
 
         <!-- 例文 -->
-        <p class="mt-2 text-gray-600 italic text-sm">{{ item.example }}</p>
+        <p class="mt-2 text-gray-600 italic text-sm flex items-center gap-2">
+            <button type="button" onclick="speakText('{{ item.example | e }}', 'en')"
+                class="inline-flex items-center justify-center w-5 h-5 flex-shrink-0 rounded bg-gray-100 text-gray-400 hover:bg-indigo-100 hover:text-indigo-500 transition text-[10px]"
+                title="フレーズを読み上げ">▶</button>
+            {{ item.example }}
+        </p>
         <p class="mt-1 text-gray-500 text-sm">{{ item.example_ja }}</p>
     </div>
     {% endfor %}

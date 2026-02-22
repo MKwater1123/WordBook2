@@ -26,6 +26,7 @@ class Word(db.Model):
     example_ja     = db.Column(db.Text, nullable=False)
     transitivity   = db.Column(db.String(50), nullable=True)
     countability   = db.Column(db.String(50), nullable=True)
+    book           = db.Column(db.String(20), nullable=False, default="reading")
     created_at     = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     study_record = db.relationship(
@@ -71,3 +72,4 @@ class WordInfo:
     example_ja:     str
     transitivity:   Optional[str] = None
     countability:   Optional[str] = None
+    book:           str = "reading"

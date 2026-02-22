@@ -43,11 +43,13 @@ Return ONLY a valid JSON array (no markdown, no explanation).
 Each element must have these keys:
   - "word"           : string  (the English word)
   - "meaning"        : string  (Japanese meaning)
-  - "part_of_speech" : string  (e.g. "名詞", "動詞", "形容詞", "副詞", "前置詞", "接続詞")
-  - "example"        : string  (English example sentence)
-  - "example_ja"     : string  (Japanese translation of the example sentence)
+  - "part_of_speech" : string  (e.g. "名詞", "動詞", "形容詞", "副詞", "前置詞", "接続詞", "熟語")
+  - "example"        : string  (short English phrase using the word, NOT a full sentence; e.g. "play soccer", "run a marathon", "feel nervous" — do NOT write a full sentence like "I always play soccer")
+  - "example_ja"     : string  (Japanese translation of the phrase)
   - "transitivity"   : string or null  (only for verbs: "他動詞", "自動詞", "他動詞・自動詞"; null otherwise)
   - "countability"   : string or null  (only for nouns: "可算", "不可算", "可算・不可算"; null otherwise)
+
+If the input is an idiom or fixed phrase (熟語), set "part_of_speech" to "熟語", and set "transitivity" and "countability" to null.
 
 Example output (do NOT copy this):
 [
@@ -55,8 +57,8 @@ Example output (do NOT copy this):
     "word": "run",
     "meaning": "走る",
     "part_of_speech": "動詞",
-    "example": "She runs every morning.",
-    "example_ja": "彼女は毎朝走る。",
+    "example": "run every morning",
+    "example_ja": "毎朝走る",
     "transitivity": "自動詞",
     "countability": null
   }}
@@ -114,9 +116,14 @@ class DatabaseStorage:
 
     # ---- 単語 ----
 
-    def get_all_words(self) -> list[Word]:
+    def get_all_words(self, book: Optional[str] = None, pos: Optional[str] = None) -> list[Word]:
         try:
-            return Word.query.all()
+            q = Word.query
+            if book:
+                q = q.filter(Word.book == book)
+            if pos:
+                q = q.filter(Word.part_of_speech == pos)
+            return q.all()
         except Exception as e:
             raise StorageException(f"全単語の取得に失敗しました: {e}") from e
 
@@ -126,12 +133,13 @@ class DatabaseStorage:
         except Exception as e:
             raise StorageException(f"単語(id={word_id})の取得に失敗しました: {e}") from e
 
-    def find_word(self, word_str: str) -> list[Word]:
+    def find_word(self, word_str: str, book: Optional[str] = None) -> list[Word]:
         """大文字小文字を無視して単語を検索する"""
         try:
-            return Word.query.filter(
-                db.func.lower(Word.word) == word_str.lower()
-            ).all()
+            q = Word.query.filter(db.func.lower(Word.word) == word_str.lower())
+            if book:
+                q = q.filter(Word.book == book)
+            return q.all()
         except Exception as e:
             raise StorageException(f"単語検索に失敗しました: {e}") from e
 
@@ -146,6 +154,7 @@ class DatabaseStorage:
                 example_ja=word_info.example_ja,
                 transitivity=word_info.transitivity,
                 countability=word_info.countability,
+                book=word_info.book,
             )
             db.session.add(word)
             db.session.flush()  # word.id を確定させる
@@ -164,21 +173,81 @@ class DatabaseStorage:
             db.session.rollback()
             raise StorageException(f"単語の追加に失敗しました: {e}") from e
 
-    def delete_all_words(self) -> None:
+    def update_word(self, word_id: int, word_info: "WordInfo") -> Word:
+        """既存単語の内容を更新する"""
+        try:
+            word = Word.query.get(word_id)
+            if word is None:
+                raise StorageException(f"単語(id={word_id})が見つかりません")
+            word.word           = word_info.word
+            word.meaning        = word_info.meaning
+            word.part_of_speech = word_info.part_of_speech
+            word.example        = word_info.example
+            word.example_ja     = word_info.example_ja
+            word.transitivity   = word_info.transitivity or None
+            word.countability   = word_info.countability or None
+            word.book           = word_info.book
+            db.session.commit()
+            return word
+        except StorageException:
+            raise
+        except Exception as e:
+            db.session.rollback()
+            raise StorageException(f"単語の更新に失敗しました: {e}") from e
+
+    def get_words_by_ids(self, ids: list[int]) -> list["Word"]:
+        """指定IDの単語リストを返す"""
+        try:
+            return Word.query.filter(Word.id.in_(ids)).all()
+        except Exception as e:
+            raise StorageException(f"単語の取得に失敗しました: {e}") from e
+
+    def delete_words_by_ids(self, ids: list[int]) -> None:
+        """指定IDの単語・学習レコードを削除する"""
+        try:
+            words = Word.query.filter(Word.id.in_(ids)).all()
+            for w in words:
+                db.session.delete(w)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise StorageException(f"選択単語の削除に失敗しました: {e}") from e
+
+    def delete_all_words(self, book: Optional[str] = None) -> None:
         """全単語・学習レコードを削除する"""
         try:
-            StudyRecord.query.delete()
-            Word.query.delete()
+            if book:
+                words = Word.query.filter(Word.book == book).all()
+                for w in words:
+                    StudyRecord.query.filter_by(word_id=w.id).delete()
+                Word.query.filter(Word.book == book).delete()
+            else:
+                StudyRecord.query.delete()
+                Word.query.delete()
             db.session.commit()
         except Exception as e:
             db.session.rollback()
             raise StorageException(f"単語帳のクリアに失敗しました: {e}") from e
 
-    def count_words(self) -> int:
+    def count_words(self, book: Optional[str] = None) -> int:
         try:
-            return Word.query.count()
+            q = Word.query
+            if book:
+                q = q.filter(Word.book == book)
+            return q.count()
         except Exception as e:
             raise StorageException(f"件数取得に失敗しました: {e}") from e
+
+    def get_parts_of_speech(self, book: Optional[str] = None) -> list[str]:
+        """DB に存在する品詞の一覧を返す"""
+        try:
+            q = db.session.query(Word.part_of_speech).distinct()
+            if book:
+                q = q.filter(Word.book == book)
+            rows = q.order_by(Word.part_of_speech).all()
+            return [r[0] for r in rows]
+        except Exception as e:
+            raise StorageException(f"品詞一覧の取得に失敗しました: {e}") from e
 
     # ---- 学習レコード ----
 
@@ -196,7 +265,7 @@ class DatabaseStorage:
             db.session.rollback()
             raise StorageException(f"学習レコードの更新に失敗しました: {e}") from e
 
-    def get_due_words(self, today: date) -> list[Word]:
+    def get_due_words(self, today: date, book: Optional[str] = None) -> list[Word]:
         """due_date が today 以前の単語を返す"""
         try:
             records = (
@@ -204,7 +273,10 @@ class DatabaseStorage:
                 .filter(StudyRecord.due_date <= today)
                 .all()
             )
-            return [r.word for r in records if r.word is not None]
+            words = [r.word for r in records if r.word is not None]
+            if book:
+                words = [w for w in words if w.book == book]
+            return words
         except Exception as e:
             raise StorageException(f"学習対象単語の取得に失敗しました: {e}") from e
 

@@ -6,19 +6,59 @@
 <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
     <h1 class="text-xl font-bold text-gray-800">📚 My Dictionary</h1>
 
-    <div class="flex gap-2 flex-wrap">
+    <!-- 通常モードのボタン群 -->
+    <div id="normal-actions" class="flex gap-2 flex-wrap">
+        <!-- 選択モードへ -->
+        <button id="enter-select-btn" onclick="enterSelectionMode()"
+            class="bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-semibold px-4 py-2 rounded-lg border border-blue-200 transition">
+            選択
+        </button>
         <!-- CSVエクスポート -->
-        <a href="{{ url_for('export') }}"
+        <a href="{{ url_for('export', book=book) }}"
             class="bg-green-50 hover:bg-green-100 text-green-700 text-sm font-semibold px-4 py-2 rounded-lg border border-green-200 transition">
-            ⬇ エクスポート
+            ⬇全てエクスポート
         </a>
         <!-- クリア -->
-        <form action="{{ url_for('clear') }}" method="POST" onsubmit="return confirm('単語帳を全件削除しますか？この操作は取り消せません。')">
+        <form action="{{ url_for('clear') }}" method="POST"
+            onsubmit="return confirm('{{ 'Reading' if book == 'reading' else 'Listening' }} 単語帳を全件削除しますか？この操作は取り消せません。')">
+            <input type="hidden" name="book" value="{{ book }}" />
             <button type="submit"
                 class="bg-red-50 hover:bg-red-100 text-red-700 text-sm font-semibold px-4 py-2 rounded-lg border border-red-200 transition">
-                🗑 単語帳をクリア
+                全て削除
             </button>
         </form>
+        <!-- 追加 -->
+        <button onclick="openAddModal()"
+            class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold px-4 py-2 rounded-lg border border-indigo-200 transition">
+            ＋ 追加
+        </button>
+    </div>
+</div>
+
+<!-- 選択モードアクションバー (初期非表示) -->
+<div id="select-toolbar"
+    class="hidden mb-4 flex items-center gap-3 flex-wrap bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+    <label class="flex items-center gap-1.5 cursor-pointer text-sm font-semibold text-blue-700">
+        <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this)"
+            class="w-4 h-4 accent-blue-600" />
+        全て選択
+    </label>
+    <span id="select-count-badge" class="text-sm text-blue-600 font-medium">0 件選択中</span>
+    <div class="flex gap-2 ml-auto flex-wrap">
+        <button id="export-selected-btn" disabled onclick="submitExportSelected()" class="text-sm font-semibold px-4 py-1.5 rounded-lg border transition
+                   bg-green-50 text-green-700 border-green-200 hover:bg-green-100
+                   disabled:opacity-40 disabled:cursor-not-allowed">
+            ⬇ 選択行をエクスポート
+        </button>
+        <button id="delete-selected-btn" disabled onclick="submitDeleteSelected()" class="text-sm font-semibold px-4 py-1.5 rounded-lg border transition
+                   bg-red-50 text-red-700 border-red-200 hover:bg-red-100
+                   disabled:opacity-40 disabled:cursor-not-allowed">
+            選択行を削除
+        </button>
+        <button onclick="exitSelectionMode()"
+            class="text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition">
+            ✕ キャンセル
+        </button>
     </div>
 </div>
 
@@ -38,23 +78,53 @@
 {% macro sort_link(label, key) %}
 {% if sort == key %}
 {% set next_order = 'desc' if order == 'asc' else 'asc' %}
-<a href="{{ url_for('dictionary', sort=key, order=next_order) }}" class="text-indigo-700 font-semibold hover:underline">
+<a href="{{ url_for('dictionary', sort=key, order=next_order, book=book, pos=pos) }}"
+    class="{% if book == 'reading' %}text-indigo-700{% else %}text-sky-700{% endif %} font-semibold hover:underline">
     {{ label }}
     {% if order == 'asc' %}↑{% else %}↓{% endif %}
 </a>
 {% else %}
-<a href="{{ url_for('dictionary', sort=key, order='asc') }}"
-    class="text-gray-600 hover:text-indigo-600 hover:underline">
+<a href="{{ url_for('dictionary', sort=key, order='asc', book=book, pos=pos) }}"
+    class="text-gray-600 hover:{% if book == 'reading' %}text-indigo-600{% else %}text-sky-600{% endif %} hover:underline">
     {{ label }}
 </a>
 {% endif %}
 {% endmacro %}
 
+<!-- Reading / Listening タブ -->
+<div class="flex gap-1 mb-5 border-b border-gray-200">
+    <a href="{{ url_for('dictionary', book='reading', sort=sort, order=order) }}"
+        class="px-5 py-2 text-sm font-semibold rounded-t-lg border border-b-0 transition
+               {% if book == 'reading' %}bg-white border-gray-200 text-indigo-700{% else %}bg-gray-50 border-transparent text-gray-500 hover:text-gray-700{% endif %}">
+        📖 Reading
+    </a>
+    <a href="{{ url_for('dictionary', book='listening', sort=sort, order=order) }}"
+        class="px-5 py-2 text-sm font-semibold rounded-t-lg border border-b-0 transition
+               {% if book == 'listening' %}bg-white border-gray-200 text-sky-700{% else %}bg-gray-50 border-transparent text-gray-500 hover:text-gray-700{% endif %}">
+        🎧 Listening
+    </a>
+</div>
+
+
+
 {% if words %}
-<!-- 絞り込み入力欄 -->
 <div class="mb-3">
-    <input id="filter-input" type="text" placeholder="単語で絞り込み…"
-        class="w-full max-w-xs border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+    <!-- 絞り込み入力欄 -->
+    <input id="filter-input" type="text" placeholder="ワードで絞り込み…" class="w-full max-w-xs border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2
+               {% if book == 'reading' %}focus:ring-indigo-400{% else %}focus:ring-sky-400{% endif %}" />
+    <!-- 品詞フィルター -->
+    {% if pos_list %}
+    <select id="pos-filter"
+        class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2
+               {% if book == 'reading' %}focus:ring-indigo-400{% else %}focus:ring-sky-400{% endif %} bg-white text-gray-700">
+        <option value="{{ url_for('dictionary', book=book, sort=sort, order=order, pos='') }}" {% if not pos
+            %}selected{% endif %}>すべて</option>
+        {% for p in pos_list %}
+        <option value="{{ url_for('dictionary', book=book, sort=sort, order=order, pos=p) }}" {% if pos==p %}selected{%
+            endif %}>{{ p }}</option>
+        {% endfor %}
+    </select>
+    {% endif %}
 </div>
 
 <!-- テーブル -->
@@ -62,21 +132,53 @@
     <table class="w-full text-sm text-left">
         <thead class="bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
             <tr>
+                <th class="select-col hidden px-3 py-3 w-10"></th>
                 <th class="px-4 py-3 whitespace-nowrap">{{ sort_link('単語', 'word') }}</th>
                 <th class="px-4 py-3 whitespace-nowrap">品詞</th>
                 <th class="px-4 py-3">意味</th>
-                <th class="px-4 py-3">例文 (EN)</th>
-                <th class="px-4 py-3">例文 (JA)</th>
+                <th class="px-4 py-3">フレーズ</th>
+                <th class="px-4 py-3">フレーズの意味</th>
+                <th class="px-4 py-3 whitespace-nowrap">その他</th>
+                <th class="px-4 py-3 w-12"></th>
             </tr>
         </thead>
         <tbody id="word-table-body">
             {% for word in words %}
-            <tr class="border-b border-gray-100 hover:bg-gray-50 transition word-row">
-                <td class="px-4 py-3 font-semibold text-indigo-700 word-cell">{{ word.word }}</td>
+            <tr class="border-b border-gray-100 hover:bg-gray-50 transition word-row" data-word-id="{{ word.id }}"
+                data-word="{{ word.word | e }}" data-meaning="{{ word.meaning | e }}"
+                data-pos="{{ word.part_of_speech | e }}" data-example="{{ word.example | e }}"
+                data-example-ja="{{ word.example_ja | e }}" data-transitivity="{{ word.transitivity or '' }}"
+                data-countability="{{ word.countability or '' }}" data-book="{{ word.book }}" style="">
+                <td class="select-col hidden px-3 py-3 text-center">
+                    <input type="checkbox" class="row-checkbox w-4 h-4 accent-blue-600 cursor-pointer"
+                        data-word-id="{{ word.id }}" onchange="onRowCheckChange(this)" />
+                </td>
+                <td
+                    class="px-4 py-3 font-semibold {% if book == 'reading' %}text-indigo-700{% else %}text-sky-700{% endif %} word-cell">
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="speakText('{{ word.word | e }}', 'en')"
+                            class="inline-flex items-center justify-center w-5 h-5 flex-shrink-0 rounded bg-gray-100 text-gray-400 hover:bg-indigo-100 hover:text-indigo-500 transition text-[10px]"
+                            title="単語を読み上げ">▶</button>
+                        {{ word.word }}
+                    </div>
+                </td>
                 <td class="px-4 py-3 whitespace-nowrap">
-                    <span class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    <span
+                        class="{% if word.part_of_speech == '熟語' %}bg-amber-100 text-amber-700{% elif book == 'reading' %}bg-indigo-100 text-indigo-700{% else %}bg-sky-100 text-sky-700{% endif %} text-xs font-semibold px-2 py-0.5 rounded-full">
                         {{ word.part_of_speech }}
                     </span>
+                </td>
+                <td class="px-4 py-3 text-gray-700">{{ word.meaning }}</td>
+                <td class="px-4 py-3 text-gray-500 italic">
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="speakText('{{ word.example | e }}', 'en')"
+                            class="inline-flex items-center justify-center w-5 h-5 flex-shrink-0 rounded bg-gray-100 text-gray-400 hover:bg-indigo-100 hover:text-indigo-500 transition text-[10px]"
+                            title="フレーズを読み上げ">▶</button>
+                        {{ word.example }}
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-gray-500">{{ word.example_ja }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
                     {% if word.transitivity %}
                     <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">
                         {{ word.transitivity }}
@@ -87,10 +189,17 @@
                         {{ word.countability }}
                     </span>
                     {% endif %}
+                    {% if not word.transitivity and not word.countability %}
+                    <span class="text-gray-300">—</span>
+                    {% endif %}
                 </td>
-                <td class="px-4 py-3 text-gray-700">{{ word.meaning }}</td>
-                <td class="px-4 py-3 text-gray-500 italic">{{ word.example }}</td>
-                <td class="px-4 py-3 text-gray-500">{{ word.example_ja }}</td>
+                <td class="px-3 py-3 text-center">
+                    <button type="button" onclick="openEditModal(this.closest('.word-row'))"
+                        class="text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 rounded px-2 py-1 transition"
+                        title="編集">
+                        ✏️
+                    </button>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -100,9 +209,165 @@
 
 {% else %}
 <p class="text-gray-400 text-sm text-center mt-16">
-    単語帳はまだ空です。検索ページから単語を追加してみましょう。
+    {% if pos %}
+    「{{ pos }}」に該当する単語はありません。
+    {% else %}
+    {% if book == 'reading' %}📖 Reading{% else %}🎧 Listening{% endif %} 単語帳はまだ空です。検索ページから単語を追加してみましょう。
+    {% endif %}
 </p>
 {% endif %}
+
+<!-- =====================================================================
+     追加モーダル
+     ===================================================================== -->
+<div id="add-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/40" onclick="closeAddModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 z-10">
+        <h2 class="text-base font-bold text-gray-800 mb-4">＋ 単語を追加</h2>
+        <form method="POST" action="{{ url_for('dictionary_add') }}">
+            <input type="hidden" name="book" value="{{ book }}" />
+            <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">単語 <span
+                            class="text-red-500">*</span></label>
+                    <input type="text" name="word" required placeholder="例: serendipity"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">品詞</label>
+                    <select id="add-pos" name="part_of_speech" onchange="updateConditionalFields('add')"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-gray-700">
+                        <option value="名詞">名詞</option>
+                        <option value="動詞">動詞</option>
+                        <option value="形容詞">形容詞</option>
+                        <option value="副詞">副詞</option>
+                        <option value="熟語">熟語</option>
+                        <option value="前置詞">前置詞</option>
+                        <option value="接続詞">接続詞</option>
+                        <option value="代名詞">代名詞</option>
+                        <option value="助動詞">助動詞</option>
+                        <option value="感嘆詞">感嘆詞</option>
+                    </select>
+                </div>
+                <div id="add-transitivity-row" class="col-span-2 hidden">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">自動詞 / 他動詞</label>
+                    <select id="add-transitivity" name="transitivity"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-gray-700">
+                        <option value="他動詞">他動詞</option>
+                        <option value="自動詞">自動詞</option>
+                        <option value="他動詞・自動詞">他動詞・自動詞</option>
+                    </select>
+                </div>
+                <div id="add-countability-row" class="col-span-2 hidden">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">可算 / 不可算</label>
+                    <select id="add-countability" name="countability"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-gray-700">
+                        <option value="可算">可算</option>
+                        <option value="不可算">不可算</option>
+                        <option value="可算・不可算">可算・不可算</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">単語の意味</label>
+                    <input type="text" name="meaning" placeholder="例: 思いがけない幸運"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">フレーズ</label>
+                    <input type="text" name="example" placeholder="例: Finding that café was pure serendipity."
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">フレーズの意味</label>
+                    <input type="text" name="example_ja" placeholder="例: あのカフェを見つけたのは全くの偶然だった。"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="closeAddModal()"
+                    class="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition">キャンセル</button>
+                <button type="submit"
+                    class="px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition">追加</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- =====================================================================
+     編集モーダル
+     ===================================================================== -->
+<div id="edit-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/40" onclick="closeEditModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 z-10">
+        <h2 class="text-base font-bold text-gray-800 mb-4">✏️ 単語を編集</h2>
+        <form id="edit-form" method="POST" action="">
+            <input type="hidden" name="book" value="{{ book }}" />
+            <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">単語 <span
+                            class="text-red-500">*</span></label>
+                    <input id="edit-word" type="text" name="word" required
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">品詞</label>
+                    <select id="edit-pos" name="part_of_speech" onchange="updateConditionalFields('edit')"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-gray-700">
+                        <option value="名詞">名詞</option>
+                        <option value="動詞">動詞</option>
+                        <option value="形容詞">形容詞</option>
+                        <option value="副詞">副詞</option>
+                        <option value="熟語">熟語</option>
+                        <option value="前置詞">前置詞</option>
+                        <option value="接続詞">接続詞</option>
+                        <option value="代名詞">代名詞</option>
+                        <option value="助動詞">助動詞</option>
+                        <option value="感嘆詞">感嘆詞</option>
+                    </select>
+                </div>
+                <div id="edit-transitivity-row" class="col-span-2 hidden">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">自動詞 / 他動詞</label>
+                    <select id="edit-transitivity" name="transitivity"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-gray-700">
+                        <option value="他動詞">他動詞</option>
+                        <option value="自動詞">自動詞</option>
+                        <option value="他動詞・自動詞">他動詞・自動詞</option>
+                    </select>
+                </div>
+                <div id="edit-countability-row" class="col-span-2 hidden">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">可算 / 不可算</label>
+                    <select id="edit-countability" name="countability"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-gray-700">
+                        <option value="可算">可算</option>
+                        <option value="不可算">不可算</option>
+                        <option value="可算・不可算">可算・不可算</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">単語の意味</label>
+                    <input id="edit-meaning" type="text" name="meaning"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">フレーズ</label>
+                    <input id="edit-example" type="text" name="example"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">フレーズの意味</label>
+                    <input id="edit-example-ja" type="text" name="example_ja"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="closeEditModal()"
+                    class="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition">キャンセル</button>
+                <button type="submit"
+                    class="px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -119,5 +384,198 @@
             });
         });
     }
+    // 品詞プルダウン
+    const posFilter = document.getElementById("pos-filter");
+    if (posFilter) {
+        posFilter.addEventListener("change", function () {
+            window.location.href = this.value;
+        });
+    }
+
+    // =========================================================
+    // 選択モード
+    // =========================================================
+    const BOOK = "{{ book }}";
+
+    function enterSelectionMode() {
+        document.getElementById("select-toolbar").classList.remove("hidden");
+        document.getElementById("enter-select-btn").classList.add("hidden");
+        document.querySelectorAll(".select-col").forEach(el => el.classList.remove("hidden"));
+        updateSelectCount();
+    }
+
+    function exitSelectionMode() {
+        // チェックを全解除
+        document.querySelectorAll(".row-checkbox").forEach(cb => {
+            cb.checked = false;
+            const row = cb.closest(".word-row");
+            if (row) highlightRow(row, false);
+        });
+        const allCb = document.getElementById("select-all-checkbox");
+        if (allCb) allCb.checked = false;
+
+        document.getElementById("select-toolbar").classList.add("hidden");
+        document.getElementById("enter-select-btn").classList.remove("hidden");
+        document.querySelectorAll(".select-col").forEach(el => el.classList.add("hidden"));
+        updateSelectCount();
+    }
+
+    function highlightRow(row, checked) {
+        if (checked) {
+            row.style.backgroundColor = "#bae6fd"; // sky-200 相当
+        } else {
+            row.style.backgroundColor = "";
+        }
+    }
+
+    function toggleSelectAll(checkbox) {
+        const rows = document.querySelectorAll(".word-row");
+        rows.forEach(row => {
+            // 非表示行はスキップ
+            if (row.style.display === "none") return;
+            const cb = row.querySelector(".row-checkbox");
+            if (cb) {
+                cb.checked = checkbox.checked;
+                highlightRow(row, checkbox.checked);
+            }
+        });
+        updateSelectCount();
+    }
+
+    function onRowCheckChange(cb) {
+        const row = cb.closest(".word-row");
+        if (row) highlightRow(row, cb.checked);
+        const allCb = document.getElementById("select-all-checkbox");
+        const visible = Array.from(document.querySelectorAll(".word-row"))
+            .filter(r => r.style.display !== "none");
+        const allChecked = visible.length > 0 && visible.every(r => r.querySelector(".row-checkbox")?.checked);
+        if (allCb) allCb.checked = allChecked;
+        updateSelectCount();
+    }
+
+    function getSelectedIds() {
+        return Array.from(document.querySelectorAll(".row-checkbox:checked"))
+            .map(cb => cb.dataset.wordId);
+    }
+
+    function updateSelectCount() {
+        const ids = getSelectedIds();
+        const count = ids.length;
+        const badge = document.getElementById("select-count-badge");
+        if (badge) badge.textContent = `${count} 件選択中`;
+        const exportBtn = document.getElementById("export-selected-btn");
+        const deleteBtn = document.getElementById("delete-selected-btn");
+        if (exportBtn) exportBtn.disabled = count === 0;
+        if (deleteBtn) deleteBtn.disabled = count === 0;
+    }
+
+    function buildIdsForm(action, ids) {
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = action;
+        form.style.display = "none";
+
+        const bookInput = document.createElement("input");
+        bookInput.type = "hidden";
+        bookInput.name = "book";
+        bookInput.value = BOOK;
+        form.appendChild(bookInput);
+
+        ids.forEach(id => {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "ids[]";
+            input.value = id;
+            form.appendChild(input);
+        });
+        return form;
+    }
+
+    function submitExportSelected() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return;
+        const form = buildIdsForm("{{ url_for('export_selected') }}", ids);
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function submitDeleteSelected() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return;
+        if (!confirm(`選択した ${ids.length} 件の単語を削除しますか？この操作は取り消せません。`)) return;
+        const form = buildIdsForm("{{ url_for('delete_selected') }}", ids);
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // =========================================================
+    // 追加モーダル
+    // =========================================================
+    function openAddModal() {
+        document.getElementById("add-modal").classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+    }
+    function closeAddModal() {
+        document.getElementById("add-modal").classList.add("hidden");
+        document.body.style.overflow = "";
+    }
+
+    // =========================================================
+    // 編集モーダル
+    // =========================================================
+    // =========================================================
+    // 品詞連動: 可算/不可算・自動詞/他動詞の条件付き表示
+    // =========================================================
+    function updateConditionalFields(prefix) {
+        const pos = document.getElementById(prefix + "-pos").value;
+        const transitivityRow = document.getElementById(prefix + "-transitivity-row");
+        const countabilityRow = document.getElementById(prefix + "-countability-row");
+        if (pos === "動詞") {
+            transitivityRow.classList.remove("hidden");
+            countabilityRow.classList.add("hidden");
+            document.getElementById(prefix + "-countability").value = "";
+        } else if (pos === "名詞") {
+            countabilityRow.classList.remove("hidden");
+            transitivityRow.classList.add("hidden");
+            document.getElementById(prefix + "-transitivity").value = "";
+        } else {
+            transitivityRow.classList.add("hidden");
+            countabilityRow.classList.add("hidden");
+            document.getElementById(prefix + "-transitivity").value = "";
+            document.getElementById(prefix + "-countability").value = "";
+        }
+    }
+
+    function openEditModal(row) {
+        const id = row.dataset.wordId;
+        const form = document.getElementById("edit-form");
+        form.action = `/dictionary/word/${id}/edit`;
+
+        document.getElementById("edit-word").value = row.dataset.word || "";
+        document.getElementById("edit-meaning").value = row.dataset.meaning || "";
+        document.getElementById("edit-example").value = row.dataset.example || "";
+        document.getElementById("edit-example-ja").value = row.dataset.exampleJa || "";
+
+        // 品詞をセットしてから条件フィールド更新
+        document.getElementById("edit-pos").value = row.dataset.pos || "";
+        updateConditionalFields("edit");
+        document.getElementById("edit-transitivity").value = row.dataset.transitivity || "";
+        document.getElementById("edit-countability").value = row.dataset.countability || "";
+
+        document.getElementById("edit-modal").classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+    }
+    function closeEditModal() {
+        document.getElementById("edit-modal").classList.add("hidden");
+        document.body.style.overflow = "";
+    }
+
+    // Escキーでモーダルを閉じる
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+            closeAddModal();
+            closeEditModal();
+        }
+    });
 </script>
 {% endblock %}

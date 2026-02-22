@@ -3,3 +3,4 @@ python-dotenv
 google-genai
 flask-sqlalchemy
 flask-migrate
+gtts

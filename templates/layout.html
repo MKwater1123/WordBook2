@@ -13,26 +13,19 @@
     <!-- ナビゲーションバー -->
     <nav class="bg-indigo-700 text-white shadow-md">
         <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-            <a href="{{ url_for('index') }}" class="text-xl font-bold tracking-wide">
-                📖 VocabularyBook
-            </a>
             <div class="flex items-center gap-6 text-sm font-medium">
                 <a href="{{ url_for('index') }}"
                     class="hover:text-indigo-200 transition {% if request.endpoint == 'index' %}underline underline-offset-4{% endif %}">
-                    🔍 検索
+                    検索
                 </a>
                 <a href="{{ url_for('dictionary') }}"
                     class="hover:text-indigo-200 transition {% if request.endpoint == 'dictionary' %}underline underline-offset-4{% endif %}">
-                    📚 単語帳
-                    {% if dictionary_count > 0 %}
-                    <span class="ml-1 bg-indigo-500 text-white text-xs px-2 py-0.5 rounded-full">
-                        {{ dictionary_count }}
-                    </span>
-                    {% endif %}
+                    単語帳
+
                 </a>
                 <a href="{{ url_for('study_top') }}"
                     class="hover:text-indigo-200 transition {% if request.endpoint in ('study_top','study_card','study_answer','study_evaluate','study_result') %}underline underline-offset-4{% endif %}">
-                    🎓 学習
+                    学習
                 </a>
             </div>
         </div>
@@ -62,6 +55,35 @@
                 });
             }
         })();
+    </script>
+
+    <!-- TTS グローバルヘルパー -->
+    <script>
+        /**
+         * 指定テキストを /tts 経由で読み上げる。
+         * @param {string} text  読み上げるテキスト
+         * @param {string} lang  言語コード (デフォルト 'en')
+         * @returns {Promise}    再生完了 or エラーで resolve する Promise
+         */
+        function speakText(text, lang) {
+            lang = lang || 'en';
+            return new Promise(function (resolve) {
+                var audio = new Audio('/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang));
+                audio.onended = resolve;
+                audio.onerror = resolve;
+                audio.play().catch(resolve);
+            });
+        }
+
+        /**
+         * items 配列を順番に読み上げる。
+         * @param {Array<{text:string, lang:string}>} items
+         */
+        async function playSequence(items) {
+            for (var i = 0; i < items.length; i++) {
+                await speakText(items[i].text, items[i].lang || 'en');
+            }
+        }
     </script>
 
     {% block scripts %}{% endblock %}

@@ -19,9 +19,17 @@
     <div class="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
 
         <!-- 単語 -->
-        <h2 class="text-5xl font-extrabold text-indigo-700 text-center mb-4">
+        <h2 class="text-5xl font-extrabold text-indigo-700 text-center mb-2">
             {{ word.word }}
         </h2>
+        <!-- TTS: 単語読み上げボタン -->
+        <div class="text-center mb-4">
+            <button type="button" onclick="speakText('{{ word.word | e }}', 'en')"
+                class="inline-flex items-center justify-center w-8 h-8 rounded bg-gray-100 text-gray-500 hover:bg-indigo-100 hover:text-indigo-600 transition text-xs"
+                title="単語を読み上げ">
+                ▶
+            </button>
+        </div>
 
         <!-- STEP 2: 品詞バッジ（フェードイン） -->
         {% if step == 2 %}
@@ -53,10 +61,15 @@
         </div>
         {% endif %}
 
-        <!-- 例文 -->
+        <!-- フレーズ -->
         <div class="bg-gray-50 rounded-lg px-4 py-3 mb-6">
-            <p class="text-gray-500 text-xs uppercase tracking-widest mb-1">例文</p>
-            <p class="text-gray-700 italic">{{ word.example }}</p>
+            <p class="text-gray-500 text-xs uppercase tracking-widest mb-1">フレーズ</p>
+            <div class="flex items-start gap-2">
+                <button type="button" onclick="speakText('{{ word.example | e }}', 'en')"
+                    class="inline-flex items-center justify-center w-5 h-5 flex-shrink-0 rounded bg-gray-100 text-gray-400 hover:bg-indigo-100 hover:text-indigo-500 transition text-[10px] mt-0.5"
+                    title="フレーズを読み上げ">▶</button>
+                <p class="text-gray-700 italic">{{ word.example }}</p>
+            </div>
             {% if step == 2 %}
             <p class="text-gray-500 text-sm mt-2 opacity-0" id="example-ja-block"
                 style="animation: fadeIn 0.5s ease 0.1s forwards;">
@@ -128,5 +141,15 @@
             }
         });
     }
+
+    {% if step == 1 %}
+    // カード表示時に「単語 → フレーズ」の順で自動再生
+    window.addEventListener('DOMContentLoaded', function () {
+        playSequence([
+            { text: '{{ word.word | e }}', lang: 'en' },
+            { text: '{{ word.example | e }}', lang: 'en' }
+        ]);
+    });
+    {% endif %}
 </script>
 {% endblock %}

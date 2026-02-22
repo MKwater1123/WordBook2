@@ -48,21 +48,25 @@ class WordService:
                 continue
         return results
 
-    def get_dictionary(self, sort: str = "word", order: str = "asc") -> list[Word]:
+    def get_dictionary(self, sort: str = "word", order: str = "asc", book: str = None, pos: str = None) -> list[Word]:
         """DB から単語帳を取得し、ソートして返す"""
-        words = self._storage.get_all_words()
+        words = self._storage.get_all_words(book=book, pos=pos)
         reverse = order == "desc"
         key_func = {
             "word": lambda w: w.word.lower(),
         }.get(sort, lambda w: w.word.lower())
         return sorted(words, key=key_func, reverse=reverse)
 
+    def get_parts_of_speech(self, book: str = None) -> list[str]:
+        """単語帳に存在する品詞一覧を返す"""
+        return self._storage.get_parts_of_speech(book=book)
+
     AddResult = Literal["added", "duplicate", "write_failed"]
 
     def add_to_dictionary(self, word_info: WordInfo, force_add: bool = False) -> "WordService.AddResult":
         """重複チェック後に DB へ追加する。StudyRecord も同時生成される。"""
         if not force_add:
-            existing = self._storage.find_word(word_info.word)
+            existing = self._storage.find_word(word_info.word, book=word_info.book)
             if existing:
                 return "duplicate"
         try:
@@ -71,17 +75,34 @@ class WordService:
         except Exception:
             return "write_failed"
 
-    def clear_dictionary(self) -> None:
-        """words および study_records を全件削除する"""
-        self._storage.delete_all_words()
+    def clear_dictionary(self, book: str = None) -> None:
+        """words および study_records を全件削除または指定帳のみ削除する"""
+        self._storage.delete_all_words(book=book)
 
-    def export_dictionary(self) -> str:
+    def export_dictionary(self, book: str = None) -> str:
         """辞書データを CSV 文字列に変換して返す"""
-        words = self._storage.get_all_words()
+        words = self._storage.get_all_words(book=book)
         return self._exporter.export(words)
 
-    def count_dictionary(self) -> int:
-        return self._storage.count_words()
+    def count_dictionary(self, book: str = None) -> int:
+        return self._storage.count_words(book=book)
+
+    def export_selected(self, ids: list[int]) -> str:
+        """指定IDの単語を CSV 文字列に変換して返す"""
+        words = self._storage.get_words_by_ids(ids)
+        return self._exporter.export(words)
+
+    def delete_selected(self, ids: list[int]) -> None:
+        """指定IDの単語を削除する"""
+        self._storage.delete_words_by_ids(ids)
+
+    def update_word(self, word_id: int, word_info: WordInfo) -> None:
+        """既存単語を更新する"""
+        self._storage.update_word(word_id, word_info)
+
+    def get_word_by_id(self, word_id: int) -> "Word | None":
+        """IDで単語を取得する"""
+        return self._storage.get_word_by_id(word_id)
 
 
 # ---------------------------------------------------------------------------
@@ -94,11 +115,11 @@ class StudyService:
     def __init__(self, storage: DatabaseStorage) -> None:
         self._storage = storage
 
-    def get_due_cards(self, today: date) -> list[Word]:
-        return self._storage.get_due_words(today)
+    def get_due_cards(self, today: date, book: str = None) -> list[Word]:
+        return self._storage.get_due_words(today, book=book)
 
-    def get_due_count(self, today: date) -> int:
-        return len(self._storage.get_due_words(today))
+    def get_due_count(self, today: date, book: str = None) -> int:
+        return len(self._storage.get_due_words(today, book=book))
 
     def build_session_queue(self, cards: list[Word]) -> list[int]:
         """単語 ID のキューを返す"""
