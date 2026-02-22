@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}VocabularyBook{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- ナビゲーションバー -->
+    <nav class="bg-indigo-700 text-white shadow-md">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="{{ url_for('index') }}" class="text-xl font-bold tracking-wide">
+                📖 VocabularyBook
+            </a>
+            <div class="flex items-center gap-6 text-sm font-medium">
+                <a href="{{ url_for('index') }}"
+                    class="hover:text-indigo-200 transition {% if request.endpoint == 'index' %}underline underline-offset-4{% endif %}">
+                    🔍 検索
+                </a>
+                <a href="{{ url_for('dictionary') }}"
+                    class="hover:text-indigo-200 transition {% if request.endpoint == 'dictionary' %}underline underline-offset-4{% endif %}">
+                    📚 単語帳
+                    {% if dictionary_count > 0 %}
+                    <span class="ml-1 bg-indigo-500 text-white text-xs px-2 py-0.5 rounded-full">
+                        {{ dictionary_count }}
+                    </span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_for('study_top') }}"
+                    class="hover:text-indigo-200 transition {% if request.endpoint in ('study_top','study_card','study_answer','study_evaluate','study_result') %}underline underline-offset-4{% endif %}">
+                    🎓 学習
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ローディングスピナー -->
+    <div id="loader" class="hidden fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl p-6 flex flex-col items-center gap-3 shadow-xl">
+            <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-gray-600 text-sm">検索中…</p>
+        </div>
+    </div>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-5xl mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- スピナー制御スクリプト -->
+    <script>
+        (function () {
+            const form = document.getElementById("search-form");
+            const loader = document.getElementById("loader");
+            if (form && loader) {
+                form.addEventListener("submit", function () {
+                    loader.classList.remove("hidden");
+                });
+            }
+        })();
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

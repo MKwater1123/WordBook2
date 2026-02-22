@@ -1,0 +1,132 @@
+{% extends "layout.html" %}
+{% block title %}学習セッション - VocabularyBook{% endblock %}
+
+{% block content %}
+
+<div class="max-w-xl mx-auto mt-6">
+
+    <!-- 進捗バー -->
+    <div class="mb-4 flex items-center justify-between text-sm text-gray-500">
+        <span>進捗</span>
+        <span class="font-semibold text-gray-700">{{ current_num }} / {{ total_count }}</span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-2 mb-6">
+        {% set progress = ((current_num - 1) / total_count * 100) | int if total_count > 0 else 0 %}
+        <div class="bg-indigo-500 h-2 rounded-full transition-all" style="width: {{ progress }}%"></div>
+    </div>
+
+    <!-- カード -->
+    <div class="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
+
+        <!-- 単語 -->
+        <h2 class="text-5xl font-extrabold text-indigo-700 text-center mb-4">
+            {{ word.word }}
+        </h2>
+
+        <!-- STEP 2: 品詞バッジ（フェードイン） -->
+        {% if step == 2 %}
+        <div id="answer-area" class="text-center mb-4 animate-fade-in">
+            <span class="inline-block bg-indigo-100 text-indigo-700 text-sm font-semibold px-3 py-1 rounded-full">
+                {{ word.part_of_speech }}
+            </span>
+            {% if word.transitivity %}
+            <span class="inline-block bg-green-100 text-green-700 text-sm font-semibold px-3 py-1 rounded-full ml-1">
+                {{ word.transitivity }}
+            </span>
+            {% endif %}
+            {% if word.countability %}
+            <span class="inline-block bg-purple-100 text-purple-700 text-sm font-semibold px-3 py-1 rounded-full ml-1">
+                {{ word.countability }}
+            </span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- 区切り線 -->
+        <hr class="border-gray-100 mb-5" />
+
+        <!-- STEP 2: 意味 -->
+        {% if step == 2 %}
+        <div class="text-center mb-5 opacity-0" id="meaning-block" style="animation: fadeIn 0.4s ease forwards;">
+            <p class="text-gray-500 text-xs uppercase tracking-widest mb-1">意味</p>
+            <p class="text-2xl font-bold text-gray-800">{{ word.meaning }}</p>
+        </div>
+        {% endif %}
+
+        <!-- 例文 -->
+        <div class="bg-gray-50 rounded-lg px-4 py-3 mb-6">
+            <p class="text-gray-500 text-xs uppercase tracking-widest mb-1">例文</p>
+            <p class="text-gray-700 italic">{{ word.example }}</p>
+            {% if step == 2 %}
+            <p class="text-gray-500 text-sm mt-2 opacity-0" id="example-ja-block"
+                style="animation: fadeIn 0.5s ease 0.1s forwards;">
+                {{ word.example_ja }}
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- STEP 1: 答えを表示ボタン -->
+        {% if step == 1 %}
+        <form id="answer-form" action="{{ url_for('study_answer') }}" method="POST">
+            <input type="hidden" name="word_id" value="{{ word.id }}" />
+            <button type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-lg transition">
+                答えを表示する
+            </button>
+        </form>
+        {% endif %}
+
+        <!-- STEP 2: 評価ボタン -->
+        {% if step == 2 %}
+        <div class="grid grid-cols-2 gap-3" id="rating-buttons"
+            style="opacity:0; animation: fadeIn 0.5s ease 0.2s forwards;">
+            {% set rating_items = [
+            (0, 'もう一度', 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200'),
+            (1, '難しい', 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200'),
+            (2, '正解', 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'),
+            (3, '簡単', 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200'),
+            ] %}
+            {% for rating_val, label, cls in rating_items %}
+            <form action="{{ url_for('study_evaluate') }}" method="POST">
+                <input type="hidden" name="word_id" value="{{ word.id }}" />
+                <input type="hidden" name="rating" value="{{ rating_val }}" />
+                <button type="submit" class="w-full border font-bold py-2.5 rounded-xl text-sm transition {{ cls }}">
+                    {{ label }}
+                </button>
+            </form>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<style>
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Enter キーで「答えを表示する」フォームを送信
+    const answerForm = document.getElementById("answer-form");
+    if (answerForm) {
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                answerForm.submit();
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "layout.html" %}
+{% block title %}単語帳 - VocabularyBook{% endblock %}
+
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+    <h1 class="text-xl font-bold text-gray-800">📚 My Dictionary</h1>
+
+    <div class="flex gap-2 flex-wrap">
+        <!-- CSVエクスポート -->
+        <a href="{{ url_for('export') }}"
+            class="bg-green-50 hover:bg-green-100 text-green-700 text-sm font-semibold px-4 py-2 rounded-lg border border-green-200 transition">
+            ⬇ エクスポート
+        </a>
+        <!-- クリア -->
+        <form action="{{ url_for('clear') }}" method="POST" onsubmit="return confirm('単語帳を全件削除しますか？この操作は取り消せません。')">
+            <button type="submit"
+                class="bg-red-50 hover:bg-red-100 text-red-700 text-sm font-semibold px-4 py-2 rounded-lg border border-red-200 transition">
+                🗑 単語帳をクリア
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- フラッシュメッセージ -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
+      {% if category == 'success' %}bg-blue-50 text-blue-800 border border-blue-200
+      {% elif category == 'error' %}bg-red-50 text-red-800 border border-red-200
+      {% else %}bg-amber-50 text-amber-800 border border-amber-200{% endif %}">
+    {{ message }}
+</div>
+{% endfor %}
+{% endwith %}
+
+<!-- ソートリンクヘルパー: 現在のソートと逆順でリンク生成 -->
+{% macro sort_link(label, key) %}
+{% if sort == key %}
+{% set next_order = 'desc' if order == 'asc' else 'asc' %}
+<a href="{{ url_for('dictionary', sort=key, order=next_order) }}" class="text-indigo-700 font-semibold hover:underline">
+    {{ label }}
+    {% if order == 'asc' %}↑{% else %}↓{% endif %}
+</a>
+{% else %}
+<a href="{{ url_for('dictionary', sort=key, order='asc') }}"
+    class="text-gray-600 hover:text-indigo-600 hover:underline">
+    {{ label }}
+</a>
+{% endif %}
+{% endmacro %}
+
+{% if words %}
+<!-- 絞り込み入力欄 -->
+<div class="mb-3">
+    <input id="filter-input" type="text" placeholder="単語で絞り込み…"
+        class="w-full max-w-xs border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+</div>
+
+<!-- テーブル -->
+<div class="overflow-auto max-h-[65vh] border border-gray-200 rounded-xl shadow-sm">
+    <table class="w-full text-sm text-left">
+        <thead class="bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
+            <tr>
+                <th class="px-4 py-3 whitespace-nowrap">{{ sort_link('単語', 'word') }}</th>
+                <th class="px-4 py-3 whitespace-nowrap">品詞</th>
+                <th class="px-4 py-3">意味</th>
+                <th class="px-4 py-3">例文 (EN)</th>
+                <th class="px-4 py-3">例文 (JA)</th>
+            </tr>
+        </thead>
+        <tbody id="word-table-body">
+            {% for word in words %}
+            <tr class="border-b border-gray-100 hover:bg-gray-50 transition word-row">
+                <td class="px-4 py-3 font-semibold text-indigo-700 word-cell">{{ word.word }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {{ word.part_of_speech }}
+                    </span>
+                    {% if word.transitivity %}
+                    <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {{ word.transitivity }}
+                    </span>
+                    {% endif %}
+                    {% if word.countability %}
+                    <span class="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {{ word.countability }}
+                    </span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-gray-700">{{ word.meaning }}</td>
+                <td class="px-4 py-3 text-gray-500 italic">{{ word.example }}</td>
+                <td class="px-4 py-3 text-gray-500">{{ word.example_ja }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="text-xs text-gray-400 mt-2 text-right">計 {{ words | length }} 件</p>
+
+{% else %}
+<p class="text-gray-400 text-sm text-center mt-16">
+    単語帳はまだ空です。検索ページから単語を追加してみましょう。
+</p>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // クライアントサイド絞り込み
+    const filterInput = document.getElementById("filter-input");
+    if (filterInput) {
+        filterInput.addEventListener("input", function () {
+            const query = this.value.toLowerCase();
+            document.querySelectorAll(".word-row").forEach(function (row) {
+                const word = row.querySelector(".word-cell").textContent.toLowerCase();
+                row.style.display = word.includes(query) ? "" : "none";
+            });
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block title %}学習結果 - VocabularyBook{% endblock %}
+
+{% block content %}
+
+<div class="max-w-md mx-auto mt-10">
+    <div class="bg-white rounded-2xl shadow-md border border-gray-200 p-8 text-center">
+
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">🎉 学習完了！</h1>
+        <p class="text-gray-500 text-sm mb-6">お疲れ様でした</p>
+
+        <!-- 学習枚数 -->
+        <div class="mb-6">
+            <p class="text-gray-500 text-sm mb-1">今回の学習カード数</p>
+            <p class="text-5xl font-extrabold text-indigo-600">{{ studied_count }}</p>
+            <p class="text-gray-400 text-sm">枚</p>
+        </div>
+
+        <!-- 評価別内訳 -->
+        <div class="grid grid-cols-2 gap-3 mb-6 text-sm">
+            <div class="bg-red-50 border border-red-100 rounded-xl py-3 px-4">
+                <p class="text-red-400 text-xs mb-1">もう一度</p>
+                <p class="text-2xl font-bold text-red-600">{{ counts[0] }}</p>
+            </div>
+            <div class="bg-amber-50 border border-amber-100 rounded-xl py-3 px-4">
+                <p class="text-amber-500 text-xs mb-1">難しい</p>
+                <p class="text-2xl font-bold text-amber-600">{{ counts[1] }}</p>
+            </div>
+            <div class="bg-green-50 border border-green-100 rounded-xl py-3 px-4">
+                <p class="text-green-500 text-xs mb-1">正解</p>
+                <p class="text-2xl font-bold text-green-600">{{ counts[2] }}</p>
+            </div>
+            <div class="bg-blue-50 border border-blue-100 rounded-xl py-3 px-4">
+                <p class="text-blue-400 text-xs mb-1">簡単</p>
+                <p class="text-2xl font-bold text-blue-600">{{ counts[3] }}</p>
+            </div>
+        </div>
+
+        <!-- 次回学習予定日 -->
+        <div class="mb-8 bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm">
+            {% if next_due %}
+            <p class="text-gray-500 mb-1">次回学習予定日</p>
+            <p class="font-semibold text-gray-700">{{ next_due.strftime('%Y年%m月%d日') }}</p>
+            {% else %}
+            <p class="text-gray-400">次回の学習予定はありません。</p>
+            {% endif %}
+        </div>
+
+        <!-- ボタン群 -->
+        <div class="flex flex-col gap-3">
+            <form action="{{ url_for('study_start') }}" method="POST">
+                <button type="submit"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition">
+                    もう一度学習する
+                </button>
+            </form>
+            <a href="{{ url_for('dictionary') }}"
+                class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition text-center">
+                単語帳へ戻る
+            </a>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+{% block title %}学習 - VocabularyBook{% endblock %}
+
+{% block content %}
+
+<div class="max-w-md mx-auto mt-10">
+    <div class="bg-white rounded-2xl shadow-md border border-gray-200 p-8 text-center">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6">🎓 学習トップ</h1>
+
+        <!-- フラッシュメッセージ -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
+          {% if category == 'success' %}bg-blue-50 text-blue-800 border border-blue-200
+          {% elif category == 'error' %}bg-red-50 text-red-800 border border-red-200
+          {% else %}bg-amber-50 text-amber-800 border border-amber-200{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endwith %}
+
+        <!-- 本日のカード数 -->
+        <div class="mb-2">
+            <p class="text-gray-500 text-sm mb-1">今日学習すべきカード</p>
+            <p class="text-6xl font-extrabold {% if due_count > 0 %}text-indigo-600{% else %}text-gray-300{% endif %}">
+                {{ due_count }}
+            </p>
+            <p class="text-gray-400 text-sm mt-1">枚</p>
+        </div>
+
+        <!-- 総登録数 -->
+        <p class="text-gray-500 text-sm mb-8">
+            単語帳の総登録数: <span class="font-semibold text-gray-700">{{ total_count }}</span> 件
+        </p>
+
+        <!-- 学習開始ボタン -->
+        {% if due_count > 0 %}
+        <form action="{{ url_for('study_start') }}" method="POST">
+            <button type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-lg transition shadow">
+                学習開始 →
+            </button>
+        </form>
+        {% else %}
+        <div
+            class="w-full bg-gray-100 text-gray-400 font-bold py-3 rounded-xl text-base cursor-not-allowed border border-gray-200">
+            本日の学習は完了しています ✅
+        </div>
+        {% if total_count == 0 %}
+        <p class="text-xs text-gray-400 mt-3">
+            まず<a href="{{ url_for('index') }}" class="text-indigo-500 hover:underline">検索ページ</a>から単語を追加してください。
+        </p>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

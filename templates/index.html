@@ -1,0 +1,129 @@
+{% extends "layout.html" %}
+{% block title %}検索 - VocabularyBook{% endblock %}
+
+{% block content %}
+
+<!-- 検索フォーム (sticky) -->
+<div class="sticky top-0 z-40 bg-gray-50 pt-2 pb-3 border-b border-gray-200 mb-6">
+    <form id="search-form" action="{{ url_for('search') }}" method="POST" class="flex gap-2 max-w-xl mx-auto">
+        <input type="text" name="word" value="{{ search_word }}" placeholder="英単語を入力…（例: run）" autofocus
+            class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+        <button type="submit"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
+            検索
+        </button>
+    </form>
+</div>
+
+<!-- フラッシュメッセージ -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
+      {% if category == 'success' %}bg-blue-50 text-blue-800 border border-blue-200
+      {% elif category == 'error' %}bg-red-50 text-red-800 border border-red-200
+      {% else %}bg-amber-50 text-amber-800 border border-amber-200{% endif %}">
+    {{ message }}
+</div>
+{% endfor %}
+{% endwith %}
+
+<!-- 重複確認バナー -->
+{% if pending_add %}
+<div class="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
+    <p class="text-amber-800 font-semibold mb-3">
+        ⚠️ 「{{ pending_add.word }}」は既に辞書に登録されています。この単語を追加しますか？
+    </p>
+    <div class="flex gap-3">
+        <!-- 強制追加 -->
+        <form action="{{ url_for('add') }}" method="POST">
+            <input type="hidden" name="word" value="{{ pending_add.word }}" />
+            <input type="hidden" name="meaning" value="{{ pending_add.meaning }}" />
+            <input type="hidden" name="part_of_speech" value="{{ pending_add.part_of_speech }}" />
+            <input type="hidden" name="example" value="{{ pending_add.example }}" />
+            <input type="hidden" name="example_ja" value="{{ pending_add.example_ja }}" />
+            <input type="hidden" name="transitivity" value="{{ pending_add.transitivity or '' }}" />
+            <input type="hidden" name="countability" value="{{ pending_add.countability or '' }}" />
+            <input type="hidden" name="force_add" value="1" />
+            <button type="submit"
+                class="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                追加する
+            </button>
+        </form>
+        <!-- キャンセル -->
+        <form action="{{ url_for('add_cancel') }}" method="POST">
+            <button type="submit"
+                class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition">
+                キャンセル
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- 検索結果カード一覧 -->
+{% if search_results %}
+<h2 class="text-lg font-bold text-gray-700 mb-4">
+    「{{ search_word }}」の検索結果（{{ search_results | length }}件）
+</h2>
+<div class="grid gap-4">
+    {% for item in search_results %}
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+            <!-- 単語・品詞バッジ -->
+            <div>
+                <span class="text-2xl font-bold text-indigo-700">{{ item.word }}</span>
+                <span
+                    class="ml-2 inline-block bg-indigo-100 text-indigo-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {{ item.part_of_speech }}
+                </span>
+                {% if item.transitivity %}
+                <span
+                    class="ml-1 inline-block bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {{ item.transitivity }}
+                </span>
+                {% endif %}
+                {% if item.countability %}
+                <span
+                    class="ml-1 inline-block bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {{ item.countability }}
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- 追加ボタン -->
+            <form action="{{ url_for('add') }}" method="POST">
+                <input type="hidden" name="word" value="{{ item.word }}" />
+                <input type="hidden" name="meaning" value="{{ item.meaning }}" />
+                <input type="hidden" name="part_of_speech" value="{{ item.part_of_speech }}" />
+                <input type="hidden" name="example" value="{{ item.example }}" />
+                <input type="hidden" name="example_ja" value="{{ item.example_ja }}" />
+                <input type="hidden" name="transitivity" value="{{ item.transitivity or '' }}" />
+                <input type="hidden" name="countability" value="{{ item.countability or '' }}" />
+                <button type="submit"
+                    class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 transition whitespace-nowrap">
+                    ＋ 辞書に追加
+                </button>
+            </form>
+        </div>
+
+        <!-- 意味 -->
+        <p class="mt-3 text-gray-800 font-medium">{{ item.meaning }}</p>
+
+        <!-- 例文 -->
+        <p class="mt-2 text-gray-600 italic text-sm">{{ item.example }}</p>
+        <p class="mt-1 text-gray-500 text-sm">{{ item.example_ja }}</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% elif search_word %}
+<p class="text-gray-500 text-sm text-center mt-10">
+    「{{ search_word }}」の検索結果がありません。
+</p>
+{% else %}
+<p class="text-gray-400 text-sm text-center mt-16">
+    英単語を入力して検索してください。
+</p>
+{% endif %}
+
+{% endblock %}
